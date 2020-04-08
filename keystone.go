@@ -70,6 +70,7 @@ func NewKeystoneClient(auth_url, tenant_name, username, password, token string) 
 		"",
 		"",
 		false,
+		&http.Client{},
 	}
 }
 
@@ -85,6 +86,7 @@ func NewKeepaliveKeystoneClient(auth_url, tenant_name, username, password, token
 			"",
 			"",
 			false,
+			&http.Client{},
 		},
 	}
 }
