@@ -313,7 +313,7 @@ func (kClient *KeystoneClient) AddEncryption(caFile string, keyFile string, cert
 	} else if caFile != "" {
 		caCert, err := ioutil.ReadFile(caFile)
 		if err != nil {
-			return nil
+			return err
 		}
 		caCertPool := x509.NewCertPool()
 		caCertPool.AppendCertsFromPEM(caCert)
@@ -321,7 +321,7 @@ func (kClient *KeystoneClient) AddEncryption(caFile string, keyFile string, cert
 		if certFile != "" && keyFile != "" {
 			cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 			if err != nil {
-				return nil
+				return err
 			}
 			tlsConfig.Certificates = []tls.Certificate{cert}
 		}
