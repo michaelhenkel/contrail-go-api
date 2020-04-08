@@ -6,10 +6,13 @@ package contrail
 
 import (
 	"bytes"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -26,6 +29,8 @@ type KeystoneClient struct {
 	expiresAt  string
 	issuedAt   string
 	isv3Client bool
+
+	httpClient *http.Client
 }
 
 type KeepaliveKeystoneClient struct {
@@ -127,7 +132,7 @@ func (kClient *KeystoneClient) AuthenticateV3() error {
 		return err
 	}
 
-	resp, err := http.Post(url, "application/json",
+	resp, err := kClient.httpClient.Post(url, "application/json",
 		bytes.NewReader(data))
 
 	if err != nil {
@@ -214,7 +219,7 @@ func (kClient *KeystoneClient) Authenticate() error {
 		return err
 	}
 
-	resp, err := http.Post(url, "application/json",
+	resp, err := kClient.httpClient.Post(url, "application/json",
 		bytes.NewReader(data))
 
 	if err != nil {
@@ -291,5 +296,38 @@ func (kClient *KeystoneClient) AddAuthentication(req *http.Request) error {
 		}
 	}
 	req.Header.Set("X-Auth-Token", kClient.tokenID)
+	return nil
+}
+
+// AddEncryption implements the Encryptor interface for Client.
+func (kClient *KeystoneClient) AddEncryption(caFile string, keyFile string, certFile string, insecure bool) error {
+	if !strings.HasPrefix(kClient.osAuthURL, "https") && strings.HasPrefix(kClient.osAuthURL, "http") {
+		kClient.osAuthURL = strings.Replace(kClient.osAuthURL, "http", "https", 1)
+	}
+
+	tlsConfig := &tls.Config{}
+	if insecure {
+		tlsConfig.InsecureSkipVerify = true
+	} else if caFile != "" {
+		caCert, err := ioutil.ReadFile(caFile)
+		if err != nil {
+			return nil
+		}
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(caCert)
+		tlsConfig.RootCAs = caCertPool
+		if certFile != "" && keyFile != "" {
+			cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+			if err != nil {
+				return nil
+			}
+			tlsConfig.Certificates = []tls.Certificate{cert}
+		}
+	}
+	transport := &http.Transport{
+		TLSClientConfig: tlsConfig,
+	}
+	kClient.httpClient.Transport = transport
+
 	return nil
 }
